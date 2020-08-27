@@ -1,0 +1,277 @@
+
+"\n\tSpin2Test (Coconut/Python)\n\n" |> print
+
+import argparse
+import yaml
+
+def lines(string): return string.rsplit('\n')
+
+def words(string): return string.rsplit(' ')
+
+def wordlines(string): return fmap (words,lines(string))
+
+
+claparser = argparse.ArgumentParser(description="Promela to C Test Generator")
+claparser.add_argument("root", help="Model filename root")
+
+cl_args = claparser.parse_args()
+fileRoot = cl_args.root
+
+spinFile = fileRoot + ".spn"
+refFile = fileRoot + "-rfn.yml"
+preFile = fileRoot + "-pre.h"
+postFile = fileRoot + "-post.h"
+testFile = fileRoot + "-test.c"
+
+print("{} --({}`)-> [{};_;{}] >> {}\n".format(spinFile,refFile
+                                           ,preFile,postFile,testFile))
+annote_lines = []
+with open(spinFile) as spinfile:
+    for line in spinfile:
+        if line[0:3] == "@@@":
+            print(line,end='')
+            annote_lines = annote_lines + [line[3:][:-1]]
+
+annote_bundle = fmap (words,annote_lines)
+
+print("Annotation Bundle:\n",annote_bundle)
+
+with open(refFile) as reffile:
+   ref = reffile.read()
+   ref_dict = yaml.safe_load(ref)
+   print("\nREFINE DUMP")
+   print(yaml.dump(ref_dict))
+
+# Promela Annotations
+#
+# INIT
+# NAME <name>
+# DEF <name> <value>
+# DECL <type> <name> [<value>]
+# SCALAR (<name>|_) <value>
+# PTR <name> <value>
+# STRUCT <name>
+# SEQ <name>
+# END <name>
+# CALL <name> <value1> ... <valueN>
+
+inSTRUCT = False  # True when in STRUCT
+inSEQ = False  # True when in SEQ
+seqForSEQ = "" # Holds space-separated sequence output string when in SEQ
+inName = ""     # Set to SEQ/STRUCT name when inside
+
+testName = "Un-named Test"
+defCode = []
+declCode = []
+testCode = []
+
+def logSPINLine(ln):
+    global defCode, declCode, testCode
+    str = ' '.join(ln)
+    if ln[0] in ['NAME','DEF']:
+        defCode = defCode + ["// @@@{}".format(str)]
+    elif ln[0] == 'DECL' :
+        declCode = declCode + ["// @@@{}".format(str)]
+    else:
+        testCode = testCode + ['T_log(T_NORMAL,"@@@{}");'.format(str)]
+
+def refineSPINLines([]):
+    pass
+
+@addpattern(refineSPINLines)
+match def refineSPINLines([ln]+lns):
+    logSPINLine(ln)
+    refineSPINLine(ln)
+    refineSPINLines(lns)
+
+# INIT
+match def refineSPINLine(['INIT']):
+    global testCode
+    if 'INIT' not in ref_dict.keys():
+        testCode = testCode + ["// CANNOT REFINE 'INIT'"]
+    else:
+        testCode = testCode + [ref_dict["INIT"]]
+
+# refineSPINLine below here is not robust and requires proper error checking
+
+# NAME <name>
+addpattern def refineSPINLine(['NAME',name]):
+    global testName
+    testName = name
+
+# DEF <name> <value>
+addpattern def refineSPINLine(['DEF',name,value]):
+    global defCode
+    defCode = defCode + [' '.join(['#define',name,value])]
+
+# DECL <type> <name>
+addpattern def refineSPINLine(['DECL',typ,name]):
+    global declCode
+    if typ not in ref_dict.keys():
+        declCode = declCode + ["// CANNOT REFINE Decl {}".format(typ)]
+    else:
+        declCode = declCode + [' '.join([ref_dict[typ],name,';'])]
+
+# DECL <type> <name> <value>
+addpattern def refineSPINLine(['DECL',typ,name,value]):
+    global testCode
+    if typ not in ref_dict.keys():
+        testCode = testCode + ["// DECL: no refinement entry for '{}'".format(typ)]
+    else:
+        testCode = testCode + [' '.join([ref_dict[typ],name,"=",value,';'])]
+
+# PTR <name> <value>
+addpattern def refineSPINLine(['PTR',name,value]):
+    global inSTRUCT, testCode, inName
+    if not inSTRUCT:
+        pname = name + '_PTR'
+        if pname not in ref_dict.keys():
+            testCode = testCode + ["// PTR: no refinement entry for '{}'".format(pname)]
+        else:
+            pcode = ref_dict[pname].rsplit('\n')
+            if eval(value) == 0:
+                testCode = testCode + [pcode[0]]
+            else:
+                testCode = testCode + [pcode[1].format(value)]
+    else:
+        pname = name + '_FPTR'
+        if pname not in ref_dict.keys():
+            testCode = testCode + ["// PTR(field): no refinement for '{}'".format(pname)]
+        else:
+            pcode = ref_dict[pname].rsplit('\n')
+            if eval(value) == 0:
+                testCode = testCode + [pcode[0].format(inName)]
+            else:
+                testCode = testCode + [pcode[1].format(inName,value)]
+
+# CALL <name> <value0> .. <valueN>
+addpattern def refineSPINLine(['CALL',name]+rest):
+    global testCode
+    if name not in ref_dict.keys():
+        testCode = testCode + ["// CALL: no refinement entry for '{}'".format(name)]
+    else:
+        code = ref_dict[name]
+        case len(rest):
+            match 0: testCode = testCode +  code.rsplit('\n')
+            match 1: testCode = testCode +  (code.format(rest[0])).rsplit('\n')
+            match 2: testCode = testCode +  (code.format(rest[0],rest[1])).rsplit('\n')
+            match 3:
+                testCode = testCode +  (code.format(rest[0],rest[1],rest[2])).rsplit('\n')
+            match 4:
+                testCode = testCode +  (code.format(rest[0],rest[1]
+                                   ,rest[2],rest[3])).rsplit('\n')
+        else:
+            testCode = testCode +  ["// CALL: too many (> 4) arguments for '{}'".format(name)]
+
+# STRUCT <name>
+addpattern def refineSPINLine(['STRUCT',name]):
+    global inSTRUCT, inName, testCode
+    inSTRUCT = True # should check not already inside anything!
+    inName = name
+
+# SEQ <name>
+addpattern def refineSPINLine(['SEQ',name]):
+    global inSEQ, seqForSEQ, inName, testCode
+    inSEQ = True # should check not already inside anything!
+    seqForSEQ = ""
+    inName = name
+
+# END <name>
+addpattern def refineSPINLine(['END',name]):
+    global inSTRUCT, inSEQ, seqForSEQ, inName, testCode
+    if inSTRUCT:
+        inSTRUCT = False
+    if inSEQ:
+        seqName = name + "_SEQ"
+        if seqName not in ref_dict.keys():
+            testCode = testCode + ["SEQ END: no refinement for ".format(seqName)]
+        else:
+            codelines = ref_dict[seqName].rsplit('\n')
+            for code in codelines:
+                testCode = testCode + [code.format(seqForSEQ)]
+        inSEQ = False
+        seqForSEQ = ""
+    inName = ""
+
+# SCALAR _ <value>
+addpattern def refineSPINLine(['SCALAR','_',value]):
+    # should only be used inside SEQ
+    global seqForSEQ
+    seqForSEQ = seqForSEQ + " " + value
+
+# SCALAR <field> <value>
+addpattern def refineSPINLine(['SCALAR',field,value]):
+    # should not be used inside SEQ
+    global inSTRUCT, testCode, inName
+    if not inSTRUCT:
+        if field not in ref_dict.keys():
+            testCode = testCode + ["// SCALAR: no refinement entry for '{}'".format(field)]
+        else:
+            code = ref_dict[field]
+            testCode = testCode + [code.format(value)]
+    else:
+        ffield = field + "_FSCALAR"
+        if ffield not in ref_dict.keys():
+            testCode = testCode + ["// SCALAR(field): no refinement entry for '{}'".format(ffield)]
+        else:
+            code = ref_dict[ffield]
+            testCode = testCode + [code.format(inName,value)]
+
+
+
+
+# catch-all for refineSPINLine
+@addpattern(refineSPINLine)
+match def refineSPINLine([hd]+rest):
+    global testCode
+    testCode = testCode +  ["/* DON'T KNOW HOW TO REFINE: '"+str(hd)+"' */"]
+
+@addpattern(refineSPINLine)
+match def refineSPINLine([]):
+    pass
+
+print("\nC-Code:\n",testCode)
+
+refineSPINLines(annote_bundle)
+
+
+print("\n\tRefinement Complete\n")
+
+with open(testFile,'w') as tstfile:
+
+    with open(preFile) as prefile:
+        tstfile.write(prefile.read())
+
+    tstfile.write("\n/* =============================================== */\n\n")
+
+    tstfile.write('\nconst char rtems_test_name[] = "{}";\n'.format(testName))
+
+    for line in defCode:
+        tstfile.write(line+"\n")
+
+    tstfile.write("\nT_TEST_CASE({})".format(testName))
+    tstfile.write(" {\n")
+
+    for line in declCode:
+        tstfile.write("  "+line+"\n")
+
+    for line in testCode:
+        tstfile.write("  "+line+"\n")
+
+    tstfile.write("}\n")
+
+    testWrapup = [ 'static void Init(rtems_task_argument arg)'
+                 , '{'
+                 , '   T_run_initialize(&config);'
+                 , '   T_register();'
+                 , '   T_run_by_name("{}");'.format(testName)
+                 , '}'
+    ]
+
+    for line in testWrapup:
+        tstfile.write(line+"\n")
+
+    tstfile.write("\n/* =============================================== */\n\n")
+
+    with open(postFile) as postfile:
+        tstfile.write(postfile.read())
