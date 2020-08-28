@@ -1,0 +1,87 @@
+
+
+ Chain Model running.
+@@@NAME Chain_AutoGen
+@@@DEF MAX_SIZE 8
+@@@DECL Node memory[MAX_SIZE]
+@@@DECL unsigned nptr NULL
+@@@DECL Control chain
+
+Initialising...
+@@@INIT
+@@@SEQ chain
+@@@END chain
+@@@PTR nptr 0
+@@@CALL append 23 4
+@@@SEQ chain
+@@@SCALAR _ 23
+@@@END chain
+@@@CALL getNonNull 4
+@@@SEQ chain
+@@@END chain
+@@@PTR nptr 4
+@@@STRUCT nptr
+@@@PTR nxt 0
+@@@PTR prv 0
+@@@SCALAR itm 23
+@@@END nptr
+@@@CALL append 22 3
+@@@SEQ chain
+@@@SCALAR _ 22
+@@@END chain
+@@@CALL getNonNull 3
+@@@SEQ chain
+@@@END chain
+@@@PTR nptr 3
+@@@STRUCT nptr
+@@@PTR nxt 0
+@@@PTR prv 0
+@@@SCALAR itm 22
+@@@END nptr
+@@@CALL append 21 6
+@@@SEQ chain
+@@@SCALAR _ 21
+@@@END chain
+@@@CALL getNonNull 6
+@@@SEQ chain
+@@@END chain
+@@@PTR nptr 6
+@@@STRUCT nptr
+@@@PTR nxt 0
+@@@PTR prv 0
+@@@SCALAR itm 21
+@@@END nptr
+spin: chains.pml:193, Error: assertion violated
+spin: text of failed assertion: assert((chain.size!=0))
+spin: trail ends after 76 steps
+#processes: 1
+		memory[0].nxt = 0
+		memory[0].prv = 0
+		memory[0].itm = 0
+		memory[1].nxt = 0
+		memory[1].prv = 0
+		memory[1].itm = 0
+		memory[2].nxt = 0
+		memory[2].prv = 0
+		memory[2].itm = 0
+		memory[3].nxt = 0
+		memory[3].prv = 0
+		memory[3].itm = 22
+		memory[4].nxt = 0
+		memory[4].prv = 0
+		memory[4].itm = 23
+		memory[5].nxt = 0
+		memory[5].prv = 0
+		memory[5].itm = 0
+		memory[6].nxt = 0
+		memory[6].prv = 0
+		memory[6].itm = 21
+		memory[7].nxt = 0
+		memory[7].prv = 0
+		memory[7].itm = 0
+		nptr = 6
+		chain.head = 0
+		chain.tail = 0
+		chain.size = 0
+ 76:	proc  0 (:init::1) chains.pml:195 (state 49)
+7 processes created
