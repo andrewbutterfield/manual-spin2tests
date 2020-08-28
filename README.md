@@ -60,7 +60,7 @@ and use these to generate a C test program `chains-test.c`.
 
 The example here works with the new RTEMS Testing Framework,
 but similar examples could be constructed for the old framework.
-The test should be installed into the RTEMS test system and built.
+The test should be installed into the RTEMS test system and built, as `chains-test.exe`, perhaps.
 
 The test can be run and saved by using a simulator 
 (we assume the `leon3` BSP here):
