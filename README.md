@@ -3,17 +3,23 @@
 Linking Promela/SPIN to RTEMS-SMP C Tests
 
 This shows how to take a Promela model of an API
-instrumented to output key API definitions, declarations an API calls,
+instrumented to output key API definitions, declarations, data values, and API calls,
 and use it to produce a test for that API.
 
 ## INSTALL
 
-This requires Python 3, and PyYAML and Coconut packages.
+### Prerequisites
+
+This requires Python3, and PyYAML and Coconut packages.
 
 ```
 pip3 install pyyaml
 pip3 install coconut
 ```
+It also requires an installation of the SPIN Model checker (spinroot.com), 
+which itself requires a C compiler plus yacc/lex and other standard C tools.
+
+### Build
 
 The source file for the tool is `spin2test.coco`.
 To compile it do
