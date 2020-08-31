@@ -2,9 +2,21 @@
 
 Linking Promela/SPIN to RTEMS-SMP C Tests
 
-This shows how to take a Promela model of an API
-instrumented to output key API definitions, declarations, data values, and API calls,
-and use it to produce a test for that API.
+A *demonstration prototype* for proposed RTEMS Qualification tools.
+
+This demonstrates a way to use the Promela/SPIN model checker 
+to generate tests for RTEMS API code.
+The tester has to develop:
+1. A Promela model of the API calls of interest,
+   with print statements that output key API "events" in an easy to parse notation.
+2. Some C code boilerplate files used to setup (and teardown) tests
+3. A YAML file that maps key Promela model concepts into C test fragments
+
+The tool described here will then use the above information to generate a C test.
+The use of the tool will itself be easy to automate, 
+and is intended to be part of the RTEMS qualification toolset.
+
+**All feedback welcome**
 
 ## INSTALL
 
